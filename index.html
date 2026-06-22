@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Reyara — your updates, in one calm feed</title>
+
+<!--
+  ============================================================================
+  REYARA — CLICKABLE PROTOTYPE  (demonstration only)
+  ============================================================================
+  ⚠️  THIS PROTOTYPE USES **NO REAL API ACCESS** AND **NO NOTIFICATION-LISTENER
+      ACCESS**. There are NO network calls of any kind. Every email, headline
+      and payment reminder is HARDCODED MOCK DATA, used purely to demonstrate
+      the user journey. The "Continue with Google" and per-app permission
+      dialogs are fake UI; they grant nothing.
+
+  ----------------------------------------------------------------------------
+  DESIGN SYSTEM  (aligned to the Reyara pitch deck "Reyara.pdf")
+  ----------------------------------------------------------------------------
+  The deck's promise is "a cinematic, highly personalized interface designed
+  for ABSOLUTE CALM", whose hero screens are (1) a daily dashboard, (2) a
+  Unified Feed, and (3) a Personal Memory Timeline. This prototype mirrors
+  that: the app OPENS on a unified, chronological TIMELINE of updates from
+  every connected source, grouped Today / Yesterday / Earlier, with a
+  per-source filter — plus a "Today's brief" summary card up top.
+
+  • Accent ........ "Reyara Violet"  #6C4CF1   (brand)  +  badge "Ember" #FF5A3C
+  • Type pairing .. "Fraunces" (display / wordmark)  +  "Inter" (body / UI)
+  • Spacing scale . 4 / 8 / 12 / 16 / 24 / 32  (--s1..--s6)
+  • Radius ........ cards 20px · buttons 14px · pills 999px
+  • Elevation ..... soft layered shadows, never heavy borders
+  • Icons ......... one set only — Lucide, uniform 2px stroke
+  • Motion ........ purposeful: login spinner, slide transitions, timeline
+                    fade-in, the signature count pop, calm tab cross-fades.
+  • Navigation .... bottom tabs: Today (timeline) · Sources · You (settings)
+
+  VOCABULARY: one word throughout — "Connect" / "Connected". Never link/sync.
+  Flow: Login → Interests → Connect apps → Today (timeline) ⇄ Sources ⇄ You,
+        with drill-down detail per source. Interests personalize every source.
+  ============================================================================
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<style>
+  /* ---------- tokens ---------- */
+  :root{
+    --accent:#6C4CF1;
+    --accent-700:#5938E0;
+    --accent-50:#EFEBFF;
+    --ember:#FF5A3C;
+    --ember-50:#FFEDE9;
+
+    --ink:#16151F;
+    --ink-2:#46434F;
+    --ink-3:#8B8794;
+    --line:#ECEAF1;
+    --bg:#F6F5F9;
+    --card:#FFFFFF;
+
+    --green:#19A974;
+    --green-50:#E6F7F0;
+
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+    --r-card:20px; --r-btn:14px; --r-pill:999px;
+
+    --sh-1:0 1px 2px rgba(22,21,31,.05), 0 1px 3px rgba(22,21,31,.04);
+    --sh-2:0 4px 14px rgba(22,21,31,.07), 0 2px 5px rgba(22,21,31,.04);
+    --sh-3:0 18px 48px rgba(22,21,31,.16);
+
+    --gmail:#EA4335; --news:#1A73E8; --gpay:#00897B;
+    --ease:cubic-bezier(.22,.61,.36,1);
+    --navh:66px;
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:"Inter",system-ui,sans-serif;
+    background:#E9E7F0;color:var(--ink);
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    padding:24px 12px;
+    background-image:radial-gradient(60% 50% at 50% 0%, #EEEBFA 0%, #E9E7F0 60%);
+  }
+
+  /* ---------- phone frame ---------- */
+  .phone{
+    position:relative;width:375px;height:780px;max-height:calc(100vh - 32px);
+    background:var(--bg);border-radius:42px;
+    box-shadow:var(--sh-3), 0 0 0 10px #0c0b12, 0 0 0 12px #26242f;
+    overflow:hidden;isolation:isolate;
+  }
+  .notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:124px;height:26px;background:#0c0b12;border-radius:999px;z-index:60;}
+
+  /* ---------- screen system (slide screens) ---------- */
+  .screen{
+    position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg);
+    transform:translateX(100%);opacity:0;visibility:hidden;
+    transition:transform .42s var(--ease), opacity .42s var(--ease), visibility .42s;
+    will-change:transform,opacity;z-index:1;
+  }
+  .screen.active{transform:translateX(0);opacity:1;visibility:visible;z-index:2;}
+  .screen.exit-left{transform:translateX(-26%);opacity:0;visibility:visible;z-index:1;}
+  #screen-detail{z-index:30;}
+  #screen-interests{z-index:25;}
+
+  /* ---------- tab screens (cross-fade, no slide) ---------- */
+  .screen.tab{transform:translateX(0)!important;transition:opacity .26s var(--ease), visibility .26s;}
+  .screen.tab:not(.active){opacity:0;visibility:hidden;z-index:1;}
+  .screen.tab.active{opacity:1;visibility:visible;z-index:2;}
+
+  .scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+  .scroll::-webkit-scrollbar{width:0;}
+  .pad{padding:var(--s5);}
+  .stack>*+*{margin-top:var(--s3);}
+
+  /* ---------- buttons ---------- */
+  .btn{appearance:none;border:0;cursor:pointer;font-family:inherit;font-weight:600;font-size:15px;
+    min-height:52px;border-radius:var(--r-btn);display:inline-flex;align-items:center;justify-content:center;gap:10px;
+    width:100%;transition:transform .12s var(--ease), background .2s, box-shadow .2s, opacity .2s;user-select:none;}
+  .btn:active{transform:scale(.97);}
+  .btn-primary{background:var(--accent);color:#fff;box-shadow:0 6px 16px rgba(108,76,241,.32);}
+  .btn-primary:active{background:var(--accent-700);}
+  .btn-primary[disabled]{background:#D9D5E6;color:#fff;box-shadow:none;cursor:not-allowed;}
+  .btn-ghost{background:#fff;color:var(--ink);box-shadow:var(--sh-1);border:1px solid var(--line);}
+  .btn-google{background:#fff;color:#3c4043;box-shadow:var(--sh-1);border:1px solid #DADCE0;font-weight:600;}
+
+  .app-icon{width:44px;height:44px;border-radius:13px;flex:none;display:grid;place-items:center;color:#fff;}
+  .app-icon[data-app="gmail"]{background:linear-gradient(135deg,#EA4335,#D93025);}
+  .app-icon[data-app="news"]{background:linear-gradient(135deg,#4285F4,#1A73E8);}
+  .app-icon[data-app="gpay"]{background:linear-gradient(135deg,#00BFA5,#00897B);}
+  .app-icon i{width:24px;height:24px;}
+
+  .tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;letter-spacing:.02em;
+    padding:4px 9px;border-radius:var(--r-pill);background:var(--accent-50);color:var(--accent-700);}
+
+  /* ===================================================================
+     SCREEN · LOGIN
+     =================================================================== */
+  #screen-login{transform:translateX(0);opacity:1;visibility:visible;z-index:2;
+    background:radial-gradient(120% 80% at 50% -10%, #7C5CFF 0%, #5B3BE0 46%, #3D27A8 100%);
+    color:#fff;justify-content:space-between;text-align:center;}
+  #screen-login .top-space{flex:1;}
+  .brand-lockup{display:flex;flex-direction:column;align-items:center;gap:var(--s4);padding:0 var(--s5);}
+  .logo-mark{width:84px;height:84px;border-radius:26px;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);
+    display:grid;place-items:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 14px 40px rgba(0,0,0,.28);animation:rise .7s var(--ease) both;}
+  .logo-mark i{width:42px;height:42px;color:#fff;}
+  .wordmark{font-family:"Fraunces",serif;font-weight:600;font-size:48px;line-height:1;letter-spacing:-.01em;animation:rise .7s .06s var(--ease) both;}
+  .tagline{font-size:16px;line-height:1.5;color:rgba(255,255,255,.86);max-width:250px;animation:rise .7s .12s var(--ease) both;}
+  .login-foot{padding:var(--s5);padding-bottom:var(--s6);animation:rise .7s .2s var(--ease) both;}
+  .login-foot .legal{margin-top:var(--s4);font-size:11.5px;color:rgba(255,255,255,.7);line-height:1.5;}
+  .g-logo{width:20px;height:20px;}
+  .spinner{width:20px;height:20px;border-radius:50%;border:2.5px solid rgba(60,64,67,.25);border-top-color:#3c4043;animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+  .login-loading{position:absolute;inset:0;z-index:30;background:rgba(61,39,168,.86);backdrop-filter:blur(4px);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#fff;opacity:0;visibility:hidden;transition:opacity .3s, visibility .3s;}
+  .login-loading.show{opacity:1;visibility:visible;}
+  .login-loading .ring{width:42px;height:42px;border-radius:50%;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;animation:spin .7s linear infinite;}
+  .login-loading p{margin:0;font-size:14px;color:rgba(255,255,255,.9);}
+
+  /* ===================================================================
+     SCREEN · INTERESTS
+     =================================================================== */
+  .big-title{font-family:"Fraunces",serif;font-weight:600;font-size:27px;line-height:1.15;margin:0 0 var(--s2);letter-spacing:-.01em;}
+  .big-sub{margin:0;color:var(--ink-2);font-size:14.5px;line-height:1.5;}
+  .field-label{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;font-weight:600;color:var(--ink-3);margin-bottom:9px;letter-spacing:.02em;}
+  .field-label .muted-count{color:var(--accent-700);font-weight:700;}
+  .text-input{width:100%;height:50px;border-radius:var(--r-btn);border:1.5px solid var(--line);background:#fff;padding:0 16px;font-family:inherit;font-size:15px;color:var(--ink);transition:border-color .2s, box-shadow .2s;}
+  .text-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-50);}
+  .interest-grid{display:flex;flex-wrap:wrap;gap:10px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;padding:0 15px;min-height:44px;border-radius:var(--r-pill);background:#fff;border:1.5px solid var(--line);
+    font-family:inherit;font-weight:600;font-size:13.5px;color:var(--ink-2);cursor:pointer;transition:transform .12s var(--ease), background .18s, border-color .18s, color .18s;}
+  .chip i{width:16px;height:16px;color:var(--ink-3);transition:color .18s;}
+  .chip:active{transform:scale(.94);}
+  .chip.sel{background:var(--accent-50);border-color:var(--accent);color:var(--accent-700);}
+  .chip.sel i{color:var(--accent);}
+  .sticky-foot{padding:var(--s4) var(--s5) var(--s5);background:linear-gradient(to top, var(--bg) 70%, transparent);}
+
+  /* ===================================================================
+     SCREEN · CONNECT
+     =================================================================== */
+  .head{padding:calc(var(--s6) + 8px) var(--s5) var(--s4);}
+  .head h1{font-family:"Fraunces",serif;font-weight:600;font-size:27px;line-height:1.15;margin:0 0 var(--s2);letter-spacing:-.01em;}
+  .head p{margin:0;color:var(--ink-2);font-size:14.5px;line-height:1.5;}
+  .connect-card{background:var(--card);border-radius:var(--r-card);padding:var(--s4);box-shadow:var(--sh-1);display:flex;align-items:center;gap:var(--s3);}
+  .connect-card .meta{flex:1;min-width:0;}
+  .connect-card .meta .name{font-weight:600;font-size:15.5px;}
+  .connect-card .meta .desc{color:var(--ink-3);font-size:12.5px;margin-top:2px;line-height:1.35;}
+  .pill-btn{appearance:none;border:0;cursor:pointer;font-family:inherit;font-weight:600;font-size:13.5px;padding:0 16px;height:38px;min-height:38px;border-radius:var(--r-pill);
+    background:var(--accent);color:#fff;flex:none;transition:transform .12s var(--ease), background .2s, color .2s;box-shadow:0 4px 10px rgba(108,76,241,.28);}
+  .pill-btn:active{transform:scale(.94);}
+  .pill-btn.skip{background:transparent;color:var(--ink-3);box-shadow:none;padding:0 8px;}
+  .pill-btn.connected{background:var(--green-50);color:var(--green);box-shadow:none;display:inline-flex;align-items:center;gap:5px;cursor:default;}
+  .pill-btn.connected i{width:15px;height:15px;}
+  .pill-btn.skipped{background:#F1EFF5;color:var(--ink-3);box-shadow:none;}
+  .row-skip{display:flex;justify-content:flex-end;margin-top:6px;}
+
+  /* ===================================================================
+     APP TOP BAR (shared by tabs)
+     =================================================================== */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:calc(var(--s6) + 6px) var(--s5) var(--s2);}
+  .home-brand{display:flex;align-items:center;gap:9px;}
+  .home-brand .dot{width:30px;height:30px;border-radius:9px;background:var(--accent);display:grid;place-items:center;}
+  .home-brand .dot i{width:18px;height:18px;color:#fff;}
+  .home-brand .name{font-family:"Fraunces",serif;font-weight:600;font-size:23px;letter-spacing:-.01em;}
+  .topbar .right{display:flex;align-items:center;gap:10px;}
+  .topbar .date{font-size:12px;color:var(--ink-3);font-weight:500;text-align:right;line-height:1.3;}
+  .avatar-btn{width:38px;height:38px;border-radius:50%;border:0;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--accent-700));color:#fff;font-family:"Fraunces",serif;font-weight:600;font-size:16px;display:grid;place-items:center;transition:transform .12s var(--ease);box-shadow:var(--sh-1);}
+  .avatar-btn:active{transform:scale(.92);}
+
+  .greeting{padding:var(--s2) var(--s5) var(--s3);}
+  .greeting h2{font-family:"Fraunces",serif;font-weight:600;font-size:25px;margin:0;letter-spacing:-.01em;}
+  .greeting p{margin:6px 0 0;color:var(--ink-2);font-size:14px;}
+  .greeting b{color:var(--accent-700);}
+
+  /* ---------- Today's brief card ---------- */
+  .brief{margin:var(--s2) var(--s5) var(--s4);border-radius:var(--r-card);padding:18px;color:#fff;position:relative;overflow:hidden;
+    background:linear-gradient(135deg,#6C4CF1 0%,#5232D6 55%,#3D27A8 100%);box-shadow:0 12px 28px rgba(108,76,241,.32);}
+  .brief::after{content:"";position:absolute;right:-30px;top:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.10);}
+  .brief .b-tag{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.9);}
+  .brief .b-tag i{width:14px;height:14px;}
+  .brief .b-text{font-size:15px;line-height:1.5;margin-top:9px;font-weight:500;position:relative;z-index:1;}
+  .brief .b-text b{font-weight:700;}
+  .brief .b-urgent{margin-top:12px;display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.16);border-radius:var(--r-pill);padding:7px 12px;font-size:12.5px;font-weight:600;position:relative;z-index:1;}
+  .brief .b-urgent i{width:14px;height:14px;}
+
+  /* ---------- filter chips ---------- */
+  .filters{display:flex;gap:8px;padding:0 var(--s5) var(--s3);overflow-x:auto;}
+  .filters::-webkit-scrollbar{height:0;}
+  .fchip{appearance:none;border:1.5px solid var(--line);background:#fff;cursor:pointer;font-family:inherit;font-weight:600;font-size:13px;color:var(--ink-2);
+    height:36px;min-height:36px;padding:0 14px;border-radius:var(--r-pill);flex:none;display:inline-flex;align-items:center;gap:6px;transition:transform .12s var(--ease), background .18s, border-color .18s, color .18s;}
+  .fchip i{width:14px;height:14px;}
+  .fchip:active{transform:scale(.94);}
+  .fchip.on{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+  /* ===================================================================
+     TIMELINE
+     =================================================================== */
+  .tl-group{padding:0 var(--s5);}
+  .tl-group-label{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:var(--s3) 0 var(--s2) 2px;}
+  .tl-item{display:flex;gap:11px;}
+  .tl-rail{position:relative;width:52px;flex:none;display:flex;flex-direction:column;align-items:center;}
+  .tl-rail::before{content:"";position:absolute;top:0;bottom:-14px;left:50%;transform:translateX(-50%);width:2px;background:var(--line);}
+  .tl-item:last-child .tl-rail::before{display:none;}
+  .tl-dot{width:13px;height:13px;border-radius:50%;margin-top:20px;z-index:1;border:3px solid var(--bg);box-shadow:0 0 0 1px rgba(0,0,0,.04);}
+  .tl-railtime{margin-top:6px;font-size:10px;line-height:1.25;font-weight:600;color:var(--ink-3);text-align:center;z-index:1;background:var(--bg);padding:2px 1px;}
+  .tl-card{flex:1;min-width:0;background:var(--card);border-radius:var(--r-card);box-shadow:var(--sh-1);overflow:hidden;margin-bottom:var(--s3);
+    cursor:pointer;transition:box-shadow .2s, transform .14s var(--ease);animation:fadein .4s var(--ease) both;}
+  .tl-card:active{transform:scale(.99);}
+  @keyframes fadein{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  .tl-main{padding:14px 15px;}
+  .tl-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .tl-src{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--ink-2);min-width:0;}
+  .tl-src .si{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;color:#fff;flex:none;}
+  .tl-src .si i{width:13px;height:13px;}
+  .tl-time{font-size:11.5px;color:var(--ink-3);flex:none;}
+  .tl-title{font-weight:600;font-size:14.5px;line-height:1.32;margin-top:9px;color:var(--ink);}
+  .tl-snippet{font-size:12.5px;color:var(--ink-3);margin-top:4px;line-height:1.45;}
+  .tl-extras{display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap;}
+  .tl-amount{font-family:"Fraunces",serif;font-weight:600;font-size:16px;color:var(--ink);}
+
+  .status{font-size:11px;font-weight:700;padding:3px 9px;border-radius:var(--r-pill);letter-spacing:.02em;}
+  .status.upcoming{background:var(--accent-50);color:var(--accent-700);}
+  .status.due{background:var(--ember-50);color:var(--ember);}
+  .status.paid{background:var(--green-50);color:var(--green);}
+  .foryou{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:var(--accent-700);background:var(--accent-50);padding:3px 8px;border-radius:999px;}
+  .foryou i{width:11px;height:11px;}
+
+  .item-expand{max-height:0;overflow:hidden;transition:max-height .4s var(--ease);background:#FBFAFD;}
+  .tl-card.open .item-expand,.item-card.open .item-expand{max-height:420px;}
+  .item-expand .inner{padding:var(--s4);border-top:1px solid var(--line);}
+  .item-expand p{margin:0 0 10px;font-size:13px;line-height:1.6;color:var(--ink-2);}
+  .open-app{margin-top:6px;width:100%;height:44px;min-height:44px;border-radius:12px;border:0;background:var(--accent-50);color:var(--accent-700);
+    font-weight:600;font-size:13.5px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:transform .12s var(--ease);}
+  .open-app:active{transform:scale(.97);}
+  .open-app i{width:16px;height:16px;}
+
+  /* ===================================================================
+     SOURCES TAB
+     =================================================================== */
+  .summary-card{background:var(--card);border-radius:var(--r-card);padding:var(--s4);box-shadow:var(--sh-1);display:flex;align-items:center;gap:var(--s3);cursor:pointer;transition:transform .14s var(--ease), box-shadow .2s;position:relative;}
+  .summary-card:active{transform:scale(.985);box-shadow:var(--sh-2);}
+  .summary-card .body{flex:1;min-width:0;}
+  .summary-card .name-row{display:flex;align-items:center;gap:8px;}
+  .summary-card .name-row .nm{font-weight:600;font-size:15.5px;}
+  .summary-card .preview{color:var(--ink-3);font-size:13px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .summary-card .chev{color:#C9C5D6;flex:none;}
+  .summary-card .chev i{width:22px;height:22px;}
+  .count-badge{display:inline-flex;align-items:center;gap:5px;font-weight:700;font-size:12.5px;line-height:1;color:var(--ember);background:var(--ember-50);padding:5px 10px;border-radius:var(--r-pill);transform:scale(0);box-shadow:0 2px 8px rgba(255,90,60,.18);}
+  .count-badge .n{font-size:13.5px;}
+  .count-badge.pop{animation:pop .5s var(--ease) forwards;}
+  @keyframes pop{0%{transform:scale(0);}60%{transform:scale(1.18);}100%{transform:scale(1);}}
+  .summary-card.muted{cursor:default;box-shadow:none;background:#FBFAFD;border:1px dashed var(--line);}
+  .summary-card.muted .app-icon{filter:grayscale(1);opacity:.5;}
+  .summary-card.muted .nm{color:var(--ink-3);}
+  .summary-card.muted .preview{color:var(--ink-3);}
+  .connect-link{appearance:none;border:0;background:transparent;cursor:pointer;color:var(--accent);font-weight:600;font-size:13.5px;font-family:inherit;display:inline-flex;align-items:center;gap:4px;padding:6px 0;}
+  .connect-link i{width:15px;height:15px;}
+
+  /* ===================================================================
+     DETAIL
+     =================================================================== */
+  .detail-head{display:flex;align-items:center;gap:var(--s3);padding:calc(var(--s6) + 6px) var(--s5) var(--s3);background:var(--bg);}
+  .back-btn{width:40px;height:40px;border-radius:var(--r-pill);border:0;background:#fff;box-shadow:var(--sh-1);display:grid;place-items:center;cursor:pointer;flex:none;transition:transform .12s var(--ease);}
+  .back-btn:active{transform:scale(.9);}
+  .back-btn i{width:21px;height:21px;color:var(--ink);}
+  .detail-head .title{display:flex;align-items:center;gap:10px;min-width:0;}
+  .detail-head .title .nm{font-family:"Fraunces",serif;font-weight:600;font-size:21px;letter-spacing:-.01em;}
+  .detail-sub{padding:0 var(--s5) var(--s3);color:var(--ink-3);font-size:13px;}
+  .item-card{background:var(--card);border-radius:var(--r-card);box-shadow:var(--sh-1);overflow:hidden;cursor:pointer;transition:box-shadow .2s, transform .14s var(--ease);animation:fadein .4s var(--ease) both;}
+  .item-card:active{transform:scale(.99);}
+  .item-card .item-main{padding:var(--s4);display:flex;gap:var(--s3);align-items:flex-start;}
+  .avatar{width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center;font-weight:700;font-size:15px;color:#fff;}
+  .item-body{flex:1;min-width:0;}
+  .item-row1{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+  .item-from{font-weight:600;font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .item-time{font-size:11.5px;color:var(--ink-3);flex:none;}
+  .item-subject{font-weight:600;font-size:13.5px;margin-top:3px;color:var(--ink);}
+  .item-snippet{font-size:12.5px;color:var(--ink-3);margin-top:2px;line-height:1.45;}
+  .unread-dot{width:8px;height:8px;border-radius:50%;background:var(--ember);flex:none;margin-top:6px;}
+  .amount{font-family:"Fraunces",serif;font-weight:600;font-size:19px;color:var(--ink);}
+
+  /* ===================================================================
+     SETTINGS (You tab)
+     =================================================================== */
+  .profile-card{display:flex;align-items:center;gap:14px;padding:18px;background:#fff;border-radius:var(--r-card);box-shadow:var(--sh-1);}
+  .profile-card .pa{width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-700));display:grid;place-items:center;color:#fff;font-family:"Fraunces",serif;font-weight:600;font-size:22px;flex:none;}
+  .profile-card .pn{font-weight:600;font-size:17px;}
+  .profile-card .pe{font-size:13px;color:var(--ink-3);margin-top:2px;}
+  .settings-section{margin-top:24px;}
+  .settings-section h3{font-size:11.5px;font-weight:700;color:var(--ink-3);letter-spacing:.05em;text-transform:uppercase;margin:0 0 10px 4px;}
+  .set-card{background:#fff;border-radius:var(--r-card);box-shadow:var(--sh-1);overflow:hidden;}
+  .set-row{display:flex;align-items:center;gap:14px;padding:14px 16px;min-height:58px;}
+  .set-row+.set-row{border-top:1px solid var(--line);}
+  .set-row .si{width:36px;height:36px;border-radius:10px;background:var(--accent-50);display:grid;place-items:center;flex:none;}
+  .set-row .si i{width:19px;height:19px;color:var(--accent-700);}
+  .set-row .st{flex:1;min-width:0;}
+  .set-row .st .t{font-weight:600;font-size:14.5px;}
+  .set-row .st .d{font-size:12px;color:var(--ink-3);margin-top:1px;line-height:1.4;}
+  .toggle{width:48px;height:28px;border-radius:999px;background:#D9D5E6;position:relative;cursor:pointer;flex:none;transition:background .2s;border:0;padding:0;}
+  .toggle.on{background:var(--accent);}
+  .toggle::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .22s var(--ease);}
+  .toggle.on::after{transform:translateX(20px);}
+  .set-link{appearance:none;border:0;background:transparent;cursor:pointer;font-family:inherit;font-weight:600;font-size:13.5px;color:var(--accent);flex:none;display:inline-flex;align-items:center;gap:3px;}
+  .set-link i{width:15px;height:15px;}
+  .set-pill{appearance:none;border:0;cursor:pointer;font-family:inherit;font-weight:600;font-size:13px;padding:0 14px;height:34px;border-radius:var(--r-pill);flex:none;transition:transform .12s var(--ease);}
+  .set-pill:active{transform:scale(.94);}
+  .set-pill.connect{background:var(--accent);color:#fff;box-shadow:0 4px 10px rgba(108,76,241,.26);}
+  .set-pill.disconnect{background:#F1EFF5;color:var(--ink-2);}
+  .interest-summary{display:flex;flex-wrap:wrap;gap:8px;padding:16px;}
+  .interest-summary .tchip{font-size:12px;font-weight:600;color:var(--accent-700);background:var(--accent-50);padding:5px 11px;border-radius:999px;}
+  .interest-summary .tchip.none{color:var(--ink-3);background:#F1EFF5;}
+  .signout{margin-top:24px;width:100%;height:50px;min-height:50px;border-radius:var(--r-btn);border:0;background:#fff;box-shadow:var(--sh-1);color:#E0463A;font-weight:600;font-size:15px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .12s var(--ease);}
+  .signout:active{transform:scale(.98);}
+  .signout i{width:18px;height:18px;}
+  .about-note{text-align:center;color:var(--ink-3);font-size:11.5px;line-height:1.5;margin-top:18px;}
+
+  .tuned{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:11px;cursor:pointer;}
+  .tuned .lbl{font-size:12px;color:var(--ink-3);font-weight:500;}
+  .tuned .tchip{font-size:11px;font-weight:600;color:var(--accent-700);background:var(--accent-50);padding:3px 9px;border-radius:999px;}
+  .tuned .edit-tuned{font-size:11px;font-weight:600;color:var(--ink-3);display:inline-flex;align-items:center;gap:2px;}
+  .tuned .edit-tuned i{width:12px;height:12px;}
+
+  .empty-state{text-align:center;padding:40px 24px;color:var(--ink-3);}
+  .empty-state .es-ic{width:54px;height:54px;border-radius:16px;background:#F1EFF5;display:grid;place-items:center;margin:0 auto 14px;}
+  .empty-state .es-ic i{width:26px;height:26px;color:var(--ink-3);}
+  .empty-state .es-t{font-weight:600;font-size:15px;color:var(--ink);}
+  .empty-state .es-d{font-size:13px;margin-top:6px;line-height:1.5;}
+  .empty-state button{margin-top:16px;}
+
+  /* ===================================================================
+     BOTTOM NAV
+     =================================================================== */
+  .bottom-nav{position:absolute;left:0;right:0;bottom:0;height:var(--navh);z-index:20;
+    background:rgba(255,255,255,.92);backdrop-filter:blur(14px);border-top:1px solid var(--line);
+    display:flex;align-items:stretch;padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+    transform:translateY(100%);transition:transform .32s var(--ease);}
+  .bottom-nav.show{transform:translateY(0);}
+  .nav-item{flex:1;background:none;border:0;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ink-3);transition:color .18s;}
+  .nav-item i{width:23px;height:23px;transition:transform .14s var(--ease);}
+  .nav-item .lbl{font-size:10.5px;font-weight:600;letter-spacing:.01em;}
+  .nav-item.on{color:var(--accent);}
+  .nav-item.on i{transform:translateY(-1px) scale(1.06);}
+  .nav-item:active i{transform:scale(.88);}
+
+  /* leave room above nav inside tab scrolls */
+  .tab .scroll{padding-bottom:calc(var(--navh) + 8px);}
+
+  /* ===================================================================
+     PERMISSION SHEET + TOAST
+     =================================================================== */
+  .scrim{position:absolute;inset:0;z-index:40;background:rgba(16,15,25,.5);backdrop-filter:blur(2px);display:flex;align-items:flex-end;opacity:0;visibility:hidden;transition:opacity .28s var(--ease), visibility .28s;}
+  .scrim.show{opacity:1;visibility:visible;}
+  .sheet{width:100%;background:#fff;border-radius:26px 26px 0 0;padding:var(--s5);transform:translateY(100%);transition:transform .38s var(--ease);box-shadow:0 -12px 40px rgba(0,0,0,.18);}
+  .scrim.show .sheet{transform:translateY(0);}
+  .g-head{display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:var(--s4);}
+  .g-head span{font-size:13px;color:#5f6368;font-weight:500;}
+  .perm-app{display:flex;flex-direction:column;align-items:center;text-align:center;gap:var(--s3);margin-bottom:var(--s4);}
+  .perm-app .pa-icon{width:52px;height:52px;border-radius:15px;display:grid;place-items:center;}
+  .perm-app .pa-icon i{width:28px;height:28px;color:#fff;}
+  .perm-app h3{margin:0;font-size:17px;font-weight:600;color:#202124;font-family:"Inter",sans-serif;}
+  .perm-app .acct{font-size:12.5px;color:#5f6368;}
+  .perm-scope{display:flex;gap:12px;align-items:flex-start;padding:14px;background:#F8F9FA;border-radius:14px;margin-bottom:var(--s3);}
+  .perm-scope .ps-ic{width:22px;height:22px;color:#5f6368;flex:none;margin-top:1px;}
+  .perm-scope .ps-ic i{width:22px;height:22px;}
+  .perm-scope .ps-t{font-size:13.5px;color:#202124;font-weight:600;}
+  .perm-scope .ps-d{font-size:12px;color:#5f6368;margin-top:2px;line-height:1.45;}
+  .perm-note{font-size:11px;color:#80868b;line-height:1.5;text-align:center;margin:var(--s3) 4px var(--s4);}
+  .perm-actions{display:flex;gap:12px;}
+  .perm-actions button{flex:1;height:46px;min-height:46px;border-radius:var(--r-pill);font-family:inherit;font-weight:600;font-size:14px;cursor:pointer;border:0;transition:transform .12s var(--ease), background .2s;}
+  .perm-actions button:active{transform:scale(.96);}
+  .perm-deny{background:#fff;color:#1a73e8;border:1px solid #DADCE0 !important;}
+  .perm-allow{background:#1a73e8;color:#fff;}
+
+  /* mock OS push notification (slides down from the top) */
+  .push{position:absolute;top:44px;left:12px;right:12px;z-index:55;background:rgba(255,255,255,.97);backdrop-filter:blur(16px);
+    border:1px solid rgba(0,0,0,.05);border-radius:18px;box-shadow:var(--sh-3);padding:11px 13px;display:flex;gap:11px;align-items:flex-start;cursor:pointer;
+    transform:translateY(-160%);opacity:0;transition:transform .46s var(--ease), opacity .3s;}
+  .push.show{transform:translateY(0);opacity:1;}
+  .push .p-ic{width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center;color:#fff;}
+  .push .p-ic i{width:20px;height:20px;}
+  .push .p-body{flex:1;min-width:0;}
+  .push .p-top{display:flex;align-items:center;justify-content:space-between;font-size:10.5px;color:var(--ink-3);font-weight:700;letter-spacing:.04em;text-transform:uppercase;}
+  .push .p-title{font-weight:700;font-size:13.5px;margin-top:2px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .push .p-text{font-size:12.5px;color:var(--ink-2);margin-top:1px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  .toast{position:absolute;left:50%;bottom:calc(var(--navh) + 18px);transform:translate(-50%,20px);background:#1F1D2B;color:#fff;font-size:13.5px;font-weight:500;padding:13px 18px;border-radius:14px;box-shadow:var(--sh-3);display:flex;align-items:center;gap:9px;z-index:80;opacity:0;visibility:hidden;transition:opacity .26s var(--ease), transform .26s var(--ease), visibility .26s;max-width:88%;}
+  .toast.show{opacity:1;visibility:visible;transform:translate(-50%,0);}
+  .toast i{width:17px;height:17px;color:#9C86FF;flex:none;}
+</style>
+</head>
+<body>
+
+<div class="phone" id="phone">
+  <div class="notch"></div>
+
+  <!-- ============ LOGIN ============ -->
+  <section class="screen" id="screen-login">
+    <div class="top-space"></div>
+    <div class="brand-lockup">
+      <div class="logo-mark"><i data-lucide="layers"></i></div>
+      <div class="wordmark">Reyara</div>
+      <div class="tagline">All your updates — mail, news and payments — gathered into one calm timeline.</div>
+    </div>
+    <div class="top-space"></div>
+    <div class="login-foot">
+      <button class="btn btn-google" id="btn-google" onclick="doLogin()">
+        <svg class="g-logo" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        <span id="google-label">Continue with Google</span>
+      </button>
+      <div class="legal">Prototype only — no real Google sign-in occurs.<br/>By continuing you agree to Reyara’s Terms &amp; Privacy Policy.</div>
+    </div>
+    <div class="login-loading" id="login-loading"><div class="ring"></div><p>Signing you in…</p></div>
+  </section>
+
+  <!-- ============ INTERESTS ============ -->
+  <section class="screen" id="screen-interests">
+    <div class="scroll">
+      <div class="pad" style="padding-top:calc(var(--s6) + 14px);padding-bottom:8px;">
+        <button class="back-btn" id="interests-back" style="display:none;margin-bottom:18px;" onclick="exitInterestsEdit()" aria-label="Back"><i data-lucide="arrow-left"></i></button>
+        <h1 class="big-title" id="interests-title">First, what are you into?</h1>
+        <p class="big-sub" id="interests-sub">Reyara tailors every update — news, deals and reminders — around your interests. Pick a few to get started.</p>
+        <div id="name-block" style="margin-top:24px;">
+          <label class="field-label" for="name-input">YOUR NAME</label>
+          <input class="text-input" id="name-input" placeholder="e.g. Sachin" autocomplete="off" />
+        </div>
+        <div style="margin-top:24px;">
+          <label class="field-label">YOUR INTERESTS <span class="muted-count" id="interest-count">0 selected</span></label>
+          <div class="interest-grid" id="interest-grid"></div>
+        </div>
+      </div>
+    </div>
+    <div class="sticky-foot">
+      <button class="btn btn-primary" id="btn-interests-continue" disabled onclick="submitInterests()"><span id="interests-cta">Pick at least one interest</span></button>
+    </div>
+  </section>
+
+  <!-- ============ CONNECT ============ -->
+  <section class="screen" id="screen-connect">
+    <div class="head">
+      <h1>Connect your apps</h1>
+      <p>Reyara brings updates from each app into one timeline. Connect the ones you want — you can skip any.</p>
+    </div>
+    <div class="scroll"><div class="pad stack" id="connect-list"></div></div>
+    <div class="sticky-foot">
+      <button class="btn btn-primary" id="btn-continue" disabled onclick="goApp()"><span id="continue-label">Connect an app to continue</span></button>
+    </div>
+  </section>
+
+  <!-- ============ TAB: TODAY (timeline) ============ -->
+  <section class="screen tab" id="screen-feed">
+    <div class="topbar">
+      <div class="home-brand"><div class="dot"><i data-lucide="layers"></i></div><div class="name">Reyara</div></div>
+      <div class="right">
+        <div class="date" id="feed-date"></div>
+        <button class="avatar-btn" id="feed-avatar" onclick="navTo('profile')" aria-label="You">S</button>
+      </div>
+    </div>
+    <div class="greeting">
+      <h2 id="feed-greeting">Good morning</h2>
+      <div class="tuned" id="feed-tuned" onclick="navTo('profile')"></div>
+    </div>
+    <div class="scroll">
+      <div class="brief" id="feed-brief"></div>
+      <div class="filters" id="feed-filters"></div>
+      <div id="timeline"></div>
+    </div>
+  </section>
+
+  <!-- ============ TAB: SOURCES ============ -->
+  <section class="screen tab" id="screen-sources">
+    <div class="topbar">
+      <div class="home-brand"><div class="dot"><i data-lucide="layers"></i></div><div class="name">Apps</div></div>
+      <button class="avatar-btn" onclick="navTo('profile')" aria-label="You" id="sources-avatar">S</button>
+    </div>
+    <div class="greeting" style="padding-bottom:var(--s2)">
+      <p id="sources-line" style="margin-top:0;">Tap an app to see everything in detail.</p>
+    </div>
+    <div class="scroll"><div class="pad stack" id="sources-list" style="padding-top:4px;"></div></div>
+  </section>
+
+  <!-- ============ TAB: YOU (settings) ============ -->
+  <section class="screen tab" id="screen-profile">
+    <div class="topbar"><div class="home-brand"><div class="dot"><i data-lucide="layers"></i></div><div class="name">You</div></div></div>
+    <div class="scroll"><div class="pad" id="settings-body" style="padding-top:4px;"></div></div>
+  </section>
+
+  <!-- ============ DETAIL ============ -->
+  <section class="screen" id="screen-detail">
+    <div class="detail-head">
+      <button class="back-btn" onclick="closeDetail()" aria-label="Back"><i data-lucide="arrow-left"></i></button>
+      <div class="title"><span class="app-icon" id="detail-icon" style="width:36px;height:36px;border-radius:11px;"></span><span class="nm" id="detail-name">Source</span></div>
+    </div>
+    <div class="detail-sub" id="detail-sub"></div>
+    <div class="scroll"><div id="detail-list" style="padding-top:4px;padding-bottom:32px;"></div></div>
+  </section>
+
+  <!-- ============ BOTTOM NAV ============ -->
+  <nav class="bottom-nav" id="bottom-nav">
+    <button class="nav-item" id="nav-feed" onclick="navTo('feed')"><i data-lucide="rss"></i><span class="lbl">Today</span></button>
+    <button class="nav-item" id="nav-sources" onclick="navTo('sources')"><i data-lucide="layout-grid"></i><span class="lbl">Apps</span></button>
+    <button class="nav-item" id="nav-profile" onclick="navTo('profile')"><i data-lucide="user-round"></i><span class="lbl">You</span></button>
+  </nav>
+
+  <!-- ============ PERMISSION SHEET ============ -->
+  <div class="scrim" id="perm-scrim">
+    <div class="sheet" id="perm-sheet">
+      <div class="g-head">
+        <svg class="g-logo" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        <span>Sign in with Google</span>
+      </div>
+      <div class="perm-app">
+        <div class="pa-icon" id="perm-icon"></div>
+        <div><h3 id="perm-title">Reyara wants to access your account</h3><div class="acct">sachin@gmail.com</div></div>
+      </div>
+      <div class="perm-scope">
+        <span class="ps-ic" id="perm-scope-ic"><i data-lucide="mail"></i></span>
+        <div><div class="ps-t" id="perm-scope-t">Read your email</div><div class="ps-d" id="perm-scope-d">Reyara will read summaries of your inbox.</div></div>
+      </div>
+      <div class="perm-note">Make sure you trust Reyara. You can remove access anytime in your Google Account. <span style="color:#1a73e8;">Learn more</span></div>
+      <div class="perm-actions"><button class="perm-deny" onclick="resolvePerm(false)">Deny</button><button class="perm-allow" onclick="resolvePerm(true)">Allow</button></div>
+    </div>
+  </div>
+
+  <!-- ============ TOAST ============ -->
+  <!-- ============ MOCK PUSH NOTIFICATION ============ -->
+  <div class="push" id="push" onclick="openPush()">
+    <div class="p-ic" id="push-ic"></div>
+    <div class="p-body">
+      <div class="p-top"><span id="push-app">Reyara</span><span>now</span></div>
+      <div class="p-title" id="push-title"></div>
+      <div class="p-text" id="push-text"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"><i data-lucide="arrow-up-right"></i><span id="toast-text">Done</span></div>
+</div>
+
+<script>
+/* =====================================================================
+   ALL DATA BELOW IS HARDCODED MOCK DATA. NO NETWORK CALLS ANYWHERE.
+   ===================================================================== */
+
+const SOURCES = {
+  gmail:{key:'gmail',name:'Gmail',short:'Gmail',icon:'mail',brand:'#EA4335',
+    scopeTitle:'Read your email',permScopeT:'Read, compose and send emails',
+    permScopeD:'See email message summaries, senders and subjects from your Gmail inbox.',permScopeIc:'mail',
+    accessLine:'Read your inbox summaries',subhead:'Unread in your inbox',skipPrompt:'Connect Gmail to see your unread mail here.'},
+  news:{key:'news',name:'Google News',short:'News',icon:'newspaper',brand:'#1A73E8',
+    scopeTitle:'Personalize your news',permScopeT:'Personalize news based on your interests',
+    permScopeD:'Use your saved topics and reading history to choose headlines for you.',permScopeIc:'newspaper',
+    accessLine:'Show headlines picked for you',subhead:'Headlines picked for you',skipPrompt:'Connect Google News to see headlines picked for you.'},
+  gpay:{key:'gpay',name:'Google Pay',short:'GPay',icon:'wallet-minimal',brand:'#00897B',
+    scopeTitle:'View payment reminders',permScopeT:'View your payment reminders and mandates',
+    permScopeD:'See upcoming UPI Autopay mandates and bill reminders. Reyara cannot make payments.',permScopeIc:'wallet-minimal',
+    accessLine:'Show upcoming dues & mandates',subhead:'Upcoming dues & autopay mandates',skipPrompt:'Connect Google Pay to see upcoming dues.'}
+};
+
+const state = { gmail:null, news:null, gpay:null }; // null=untouched, true=connected, false=skipped
+let userName='Sachin';
+let userInterests=[];
+let interestsMode='onboarding';
+let currentFilter='all';
+const settingsToggles={notifications:true,digest:true,sound:false};
+
+const INTERESTS=[
+  {key:'technology',label:'Technology',icon:'cpu'},
+  {key:'business',label:'Business & Finance',icon:'trending-up'},
+  {key:'sports',label:'Sports',icon:'trophy'},
+  {key:'science',label:'Science',icon:'atom'},
+  {key:'india',label:'India',icon:'landmark'},
+  {key:'world',label:'World',icon:'globe'},
+  {key:'entertainment',label:'Entertainment',icon:'clapperboard'},
+  {key:'health',label:'Health',icon:'heart-pulse'},
+  {key:'shopping',label:'Shopping & Deals',icon:'shopping-bag'},
+];
+const NEWS_CAT_KEY={Tech:'technology',Business:'business',Sports:'sports',India:'india',Science:'science',World:'world'};
+const interestLabel=k=>(INTERESTS.find(i=>i.key===k)||{label:k}).label;
+
+/* ---------- MOCK ITEMS (with timeline buckets/order) ---------- */
+/* Every item is tagged with one or more interest `topics`. Items load ONLY
+   when their topic matches the user's chosen interests — so changing interests
+   in Settings re-loads a different set across all three apps. Spread is wide
+   enough that all 9 interests surface something. */
+const DATA={
+  gmail:[
+    // technology
+    {from:'Priya Nair',initials:'PN',tone:'#6C4CF1',subject:'Design review moved to 3 PM today',
+     snippet:'Hey — pushing our sync by an hour so Aarav can join after his standup. Same room.',
+     time:'9:24 AM',tl:'9:24 AM',bucket:'today',order:924,unread:true,topics:['technology'],
+     body:'Hey Sachin,\n\nQuick heads up — I’m pushing our design review by an hour to 3:00 PM so Aarav can join after his standup. We’ll be in the Lavender room as usual.\n\nCould you bring the latest timeline mocks? Want to lock the card animation before handoff.\n\nThanks!\nPriya'},
+    {from:'GitHub',initials:'GH',tone:'#24292F',subject:'[reyara] 3 pull requests need your review',
+     snippet:'aarav-dev opened “Fix timeline card pop-in timing” and 2 others in reyara/app.',
+     time:'Yesterday',tl:'Yest · 6:10 PM',bucket:'yesterday',order:1810,unread:true,topics:['technology'],
+     body:'You have 3 pull requests awaiting review in reyara/app:\n\n• #214 Fix timeline card pop-in timing — aarav-dev\n• #213 Add skipped-source empty states — meghna\n• #211 Permission sheet copy pass — priya-n\n\nReview them on GitHub to keep the release on track for Friday.'},
+    // business
+    {from:'Zerodha',initials:'Z',tone:'#387ED1',subject:'Your SIP of ₹10,000 was processed',
+     snippet:'Your monthly SIP into Nifty 50 Index Fund was successfully placed this morning.',
+     time:'6:15 AM',tl:'6:15 AM',bucket:'today',order:615,unread:true,topics:['business'],
+     body:'Hi Sachin,\n\nYour monthly SIP of ₹10,000 into the Nifty 50 Index Fund was successfully processed today.\n\nUnits allotted: 41.27\nNAV: ₹242.30\n\nView your full portfolio on Kite. Investments are subject to market risks.'},
+    {from:'ICICI Bank',initials:'IB',tone:'#AE2A2A',subject:'Your monthly statement is ready',
+     snippet:'Your account statement for May 2026 is now available to view and download.',
+     time:'Yesterday',tl:'Yest · 9:02 AM',bucket:'yesterday',order:902,unread:true,topics:['business'],
+     body:'Dear Customer,\n\nYour ICICI Bank account statement for May 2026 is now ready. You can view and download it securely from the iMobile app or net banking.\n\nFor your security, never share your OTP, PIN or password with anyone.\n\nWarm regards,\nICICI Bank'},
+    // shopping
+    {from:'Swiggy',initials:'S',tone:'#FC8019',subject:'Your order is on the way 🛵',
+     snippet:'Rajesh has picked up your order from Truffles and is arriving in about 12 minutes.',
+     time:'8:51 AM',tl:'8:51 AM',bucket:'today',order:851,unread:true,topics:['shopping'],
+     body:'Good news! Your order from Truffles is on the way.\n\nRajesh is your delivery partner and is about 12 minutes away. You can track him live in the app.\n\nOrder #SW-48201 · ₹430\n• 1× Mushroom Cheese Burger\n• 1× Cold Coffee\n\nEnjoy your meal!'},
+    {from:'Amazon',initials:'A',tone:'#FF9900',subject:'Shipped: Sony WH-1000XM5 Headphones',
+     snippet:'Your order has shipped and is arriving Monday. Track your package for live updates.',
+     time:'Yesterday',tl:'Yest · 9:00 PM',bucket:'yesterday',order:2100,unread:true,topics:['shopping'],
+     body:'Hello Sachin,\n\nYour order has shipped!\n\nSony WH-1000XM5 Wireless Headphones — ₹26,990\nArriving: Monday, Jun 23 by 9 PM\n\nYou can track your package or manage delivery from Your Orders.'},
+    {from:'Myntra',initials:'M',tone:'#FF3F6C',subject:'End of Season Sale: up to 70% off ends tonight',
+     snippet:'Your wishlist items just dropped in price. Grab them before the sale closes.',
+     time:'Yesterday',tl:'Yest · 1:00 PM',bucket:'yesterday',order:1300,unread:true,topics:['shopping'],
+     body:'The End of Season Sale ends at midnight!\n\n3 items from your wishlist are now up to 70% off. Free shipping on orders above ₹999.\n\nShop now before your sizes sell out.'},
+    // entertainment
+    {from:'BookMyShow',initials:'BMS',tone:'#C4242B',subject:'Your tickets for “Aurora” are confirmed',
+     snippet:'2 tickets · PVR Forum Mall · Today 9:40 PM. Your e-tickets are attached.',
+     time:'10:05 AM',tl:'10:05 AM',bucket:'today',order:1005,unread:true,topics:['entertainment'],
+     body:'Booking confirmed!\n\nAurora (IMAX 2D)\nPVR Forum Mall, Koramangala\nToday, 9:40 PM · Seats H14, H15\n\nShow this e-ticket at the entrance. Enjoy the movie!'},
+    {from:'Spotify',initials:'SP',tone:'#1DB954',subject:'Your Daily Mix is ready 🎧',
+     snippet:'Fresh tracks based on your recent listening — including 4 new releases.',
+     time:'Yesterday',tl:'Yest · 5:00 PM',bucket:'yesterday',order:1700,unread:true,topics:['entertainment'],
+     body:'Your Daily Mix is updated with songs we think you’ll love, including 4 new releases from artists you follow.\n\nOpen Spotify to start listening.'},
+    // sports
+    {from:'ESPNcricinfo',initials:'CI',tone:'#0A0A0A',subject:'Match alert: IND vs AUS starts at 7 PM',
+     snippet:'The series decider begins tonight in Bengaluru. Set a reminder so you don’t miss it.',
+     time:'7:00 AM',tl:'7:00 AM',bucket:'today',order:702,unread:true,topics:['sports'],
+     body:'The series decider — India vs Australia — starts tonight at 7:00 PM at the M. Chinnaswamy Stadium, Bengaluru.\n\nIndia lead the series 2–1. Tap to follow live ball-by-ball commentary.'},
+    // health
+    {from:'Practo',initials:'P',tone:'#14BEF0',subject:'Reminder: Dr. Mehta appointment on Jun 24',
+     snippet:'Your dental check-up is in 2 days at 11:30 AM. Tap to reschedule if needed.',
+     time:'8:05 AM',tl:'8:05 AM',bucket:'today',order:805,unread:true,topics:['health'],
+     body:'Appointment reminder\n\nDr. Anita Mehta (Dentist)\nSmile Dental Care, Indiranagar\nJun 24, 11:30 AM\n\nPlease arrive 10 minutes early. Reply or tap to reschedule.'},
+    {from:'cult.fit',initials:'CF',tone:'#0D0D0D',subject:'Your HRX workout is booked for 6 AM',
+     snippet:'See you tomorrow at the Indiranagar centre. Don’t forget to carry water.',
+     time:'Yesterday',tl:'Yest · 7:30 PM',bucket:'yesterday',order:1930,unread:true,topics:['health'],
+     body:'Your class is booked!\n\nHRX Workout · 6:00 AM\ncult Indiranagar\n\nArrive 5 minutes early. You can cancel up to 1 hour before the class.'},
+    // science
+    {from:'Quanta Magazine',initials:'Q',tone:'#5A3FC0',subject:'This week: the hidden math of black holes',
+     snippet:'Plus: a new proof in number theory and why bird brains fascinate AI researchers.',
+     time:'Yesterday',tl:'Yest · 10:00 AM',bucket:'yesterday',order:1000,unread:true,topics:['science'],
+     body:'In this week’s edition:\n\n• The hidden math of black holes\n• A surprising new proof in number theory\n• Why bird brains fascinate AI researchers\n\nRead the full stories on Quanta.'},
+    // india
+    {from:'BBMP',initials:'BP',tone:'#1B7A43',subject:'Property tax rebate window closes Jun 30',
+     snippet:'Pay before Jun 30 to claim the 5% early-payment rebate for FY 2026–27.',
+     time:'Yesterday',tl:'Yest · 11:15 AM',bucket:'yesterday',order:1115,unread:true,topics:['india'],
+     body:'Bruhat Bengaluru Mahanagara Palike\n\nThe 5% rebate for early property tax payment (FY 2026–27) is available until Jun 30. Pay online via the BBMP portal to avoid the rush.'},
+    // world
+    {from:'VFS Global',initials:'VF',tone:'#C8102E',subject:'Your Schengen visa appointment is confirmed',
+     snippet:'Jun 30, 10:15 AM at the France Visa Centre. Carry your checklist and passport.',
+     time:'Yesterday',tl:'Yest · 2:00 PM',bucket:'yesterday',order:1401,unread:true,topics:['world'],
+     body:'Appointment confirmed\n\nFrance Visa Application Centre, Bengaluru\nJun 30, 10:15 AM\n\nPlease carry your printed checklist, passport, and supporting documents. Biometrics will be collected on site.'}
+  ],
+  news:[
+    // technology
+    {source:'The Verge',cat:'Tech',topics:['technology'],headline:'Apple previews on-device AI that summarizes your inbox',
+     snip:'An on-device model condenses long email threads into two lines — no cloud involved.',
+     time:'8:05 AM',tl:'8:05 AM',bucket:'today',order:805,
+     body:'At a developer preview, Apple showed a new on-device model that condenses long email threads into a two-line summary, all without sending data to the cloud. Early demos focused on travel and shopping mail. A wider rollout is expected later this year.'},
+    {source:'TechCrunch',cat:'Tech',topics:['technology'],headline:'OpenAI ships a smaller, faster model built for phones',
+     snip:'The new model runs locally on flagship phones with near-instant responses.',
+     time:'6:45 AM',tl:'6:45 AM',bucket:'today',order:645,
+     body:'OpenAI released a compact model designed to run locally on flagship phones, promising near-instant responses and offline support. Developers can access it through an on-device SDK starting this week.'},
+    // business
+    {source:'Reuters',cat:'Business',topics:['business'],headline:'RBI holds repo rate steady at 6.25% for third meeting',
+     snip:'The monetary policy committee signalled a neutral stance as inflation eases.',
+     time:'7:30 AM',tl:'7:30 AM',bucket:'today',order:730,
+     body:'The Reserve Bank of India kept its key lending rate unchanged, citing easing inflation and steady growth. The monetary policy committee signalled a “neutral” stance, leaving room to move in either direction at its next meeting in August.'},
+    {source:'Bloomberg',cat:'Business',topics:['business'],headline:'Sensex closes at record high as IT stocks rally',
+     snip:'Benchmark indices end up 1.4%, led by gains in technology and banking.',
+     time:'Yesterday',tl:'Yest · 7:30 PM',bucket:'yesterday',order:1930,
+     body:'Indian benchmark indices closed at a record high, with the Sensex up 1.4% led by technology and banking stocks. Analysts pointed to easing inflation and strong foreign inflows as key drivers.'},
+    // sports
+    {source:'ESPN',cat:'Sports',topics:['sports'],headline:'India clinch series with a last-over thriller in Mumbai',
+     snip:'India got home with two balls to spare in a Wankhede classic under lights.',
+     time:'Yesterday',tl:'Yest · 10:40 PM',bucket:'yesterday',order:2240,
+     body:'Chasing 287, India got home with two balls to spare as the lower order held its nerve under lights at the Wankhede. The player of the match credited the bowlers for restricting a strong batting side and called it the team’s best fightback of the year.'},
+    {source:'BBC Sport',cat:'Sports',topics:['sports'],headline:'Bengaluru FC sign Spanish midfielder on loan',
+     snip:'The ISL club strengthens its midfield ahead of the new season.',
+     time:'Yesterday',tl:'Yest · 12:00 PM',bucket:'yesterday',order:1200,
+     body:'Bengaluru FC have signed a Spanish central midfielder on a season-long loan, bolstering their squad ahead of the new Indian Super League campaign. The club described the move as a statement of intent.'},
+    // science
+    {source:'Nature',cat:'Science',topics:['science'],headline:'Webb telescope detects water vapour on a distant exoplanet',
+     snip:'Clear signs of water vapour on a Neptune-sized world about 70 light-years away.',
+     time:'Yesterday',tl:'Yest · 2:00 PM',bucket:'yesterday',order:1400,
+     body:'Astronomers report clear signs of water vapour in the atmosphere of a Neptune-sized world about 70 light-years away. The finding, made with the James Webb Space Telescope, adds to a short but growing list of planets with detectable atmospheres.'},
+    {source:'New Scientist',cat:'Science',topics:['science'],headline:'Lab-grown coral offers new hope for dying reefs',
+     snip:'Heat-resistant coral bred in labs survived its first open-ocean trial.',
+     time:'Fri, 20 Jun',tl:'Fri, 20 Jun',bucket:'earlier',order:30,
+     body:'Researchers report that heat-resistant coral bred in laboratories survived its first open-ocean trial, raising hopes for restoring reefs hit hard by rising sea temperatures. Scaling the approach remains a major challenge.'},
+    // india
+    {source:'The Hindu',cat:'India',topics:['india'],headline:'Bengaluru Metro Phase 3 gets cabinet approval',
+     snip:'Two new corridors spanning 44 km cleared to ease Outer Ring Road traffic.',
+     time:'Yesterday',tl:'Yest · 5:15 PM',bucket:'yesterday',order:1715,
+     body:'The state cabinet cleared two new metro corridors spanning 44 km, aimed at easing traffic on the Outer Ring Road and connecting the airport more directly. Construction is slated to begin next year, with completion targeted by 2031.'},
+    {source:'Indian Express',cat:'India',topics:['india'],headline:'Monsoon reaches Kerala two days ahead of schedule',
+     snip:'The IMD forecasts a normal monsoon, good news for farmers and reservoirs.',
+     time:'6:00 AM',tl:'6:00 AM',bucket:'today',order:600,
+     body:'The southwest monsoon arrived over Kerala two days ahead of schedule, the India Meteorological Department said, forecasting a normal season. Early onset is welcome news for farmers and for reservoir levels across the south.'},
+    // world
+    {source:'BBC',cat:'World',topics:['world'],headline:'Global summit reaches deal on climate finance',
+     snip:'A framework to channel funding toward lower-income nations facing climate impacts.',
+     time:'Fri, 20 Jun',tl:'Fri, 20 Jun',bucket:'earlier',order:0,
+     body:'Delegates agreed on a framework to channel funding toward lower-income nations facing climate impacts. Negotiators called it a meaningful step, while campaigners said the pledged amounts still fall short of what’s needed this decade.'},
+    {source:'Reuters',cat:'World',topics:['world'],headline:'EU agrees landmark rules for AI safety',
+     snip:'The bloc finalises tiered obligations for high-risk AI systems.',
+     time:'Yesterday',tl:'Yest · 11:00 AM',bucket:'yesterday',order:1100,
+     body:'The European Union finalised a landmark framework setting tiered obligations for high-risk AI systems, including transparency and human-oversight requirements. The rules will phase in over the next two years.'},
+    // entertainment
+    {source:'Variety',cat:'Entertainment',topics:['entertainment'],headline:'Sci-fi epic “Aurora” tops the weekend box office',
+     snip:'The space drama opened to strong reviews and a record IMAX weekend.',
+     time:'9:05 AM',tl:'9:05 AM',bucket:'today',order:905,
+     body:'The sci-fi epic “Aurora” topped the global box office on its opening weekend, buoyed by strong reviews and a record IMAX run. A sequel is reportedly already in early development.'},
+    {source:'Rolling Stone',cat:'Entertainment',topics:['entertainment'],headline:'Coldplay announce India tour dates for 2027',
+     snip:'The band will play Mumbai and Delhi; presale registration opens next week.',
+     time:'Yesterday',tl:'Yest · 8:10 PM',bucket:'yesterday',order:2010,
+     body:'Coldplay announced India tour dates for early 2027, with shows in Mumbai and Delhi. Presale registration opens next week, and demand is expected to be high.'},
+    // health
+    {source:'The Guardian',cat:'Health',topics:['health'],headline:'Study links 7 hours of sleep to sharper memory',
+     snip:'Consistent sleep timing mattered as much as total hours, researchers found.',
+     time:'7:00 AM',tl:'7:00 AM',bucket:'today',order:701,
+     body:'A large new study links around seven hours of sleep with sharper memory and attention in adults. Researchers noted that consistent sleep timing appeared to matter as much as the total number of hours.'},
+    {source:'Healthline',cat:'Health',topics:['health'],headline:'8,000 steps a day linked to lower heart risk',
+     snip:'Even a few days a week of brisk walking showed measurable benefits.',
+     time:'Yesterday',tl:'Yest · 4:00 PM',bucket:'yesterday',order:1600,
+     body:'New research suggests that walking around 8,000 steps a day is associated with a meaningfully lower risk of heart disease. Encouragingly, even hitting the target a few days a week showed measurable benefits.'},
+    // shopping
+    {source:'Mint',cat:'Shopping',topics:['shopping'],headline:'Amazon Prime Day to run July 12–13 this year',
+     snip:'Early deals on electronics and appliances are expected for Prime members.',
+     time:'8:30 AM',tl:'8:30 AM',bucket:'today',order:830,
+     body:'Amazon confirmed its annual Prime Day sale will run July 12–13, with early deals expected on electronics, appliances and fashion for Prime members. Bank offers are likely to return as well.'},
+    {source:'Gadgets360',cat:'Shopping',topics:['shopping'],headline:'The best wireless earbuds under ₹5,000 right now',
+     snip:'Our updated picks balance battery life, comfort and sound for the price.',
+     time:'Yesterday',tl:'Yest · 2:30 PM',bucket:'yesterday',order:1430,
+     body:'We refreshed our list of the best wireless earbuds under ₹5,000, weighing battery life, comfort, call quality and sound. A couple of new entries from this quarter made the cut.'}
+  ],
+  gpay:[
+    // entertainment
+    {merchant:'Netflix',initials:'N',tone:'#E50914',amount:'₹649',due:'Upcoming · Jun 24',
+     status:'upcoming',statusLabel:'Upcoming',time:'7:00 AM',tl:'7:00 AM',bucket:'today',order:700,topics:['entertainment'],
+     ref:'UPI Autopay · Netflix Premium',mandate:'Auto-debit from HDFC ••4821',
+     detail:'Your monthly Netflix Premium subscription renews on Jun 24 via your UPI Autopay mandate. You’ll be notified before the amount is debited.'},
+    {merchant:'Spotify Premium',initials:'S',tone:'#1DB954',amount:'₹119',due:'Upcoming · Jun 25',
+     status:'upcoming',statusLabel:'Upcoming',time:'7:00 AM',tl:'7:00 AM',bucket:'today',order:699,topics:['entertainment'],
+     ref:'UPI Autopay · Spotify India',mandate:'Auto-debit from HDFC ••4821',
+     detail:'Your Spotify Premium plan renews on Jun 25 under your UPI Autopay mandate. Manage or pause the mandate anytime in Google Pay.'},
+    {merchant:'Disney+ Hotstar',initials:'D',tone:'#0F1B41',amount:'₹299',due:'Upcoming · Jun 28',
+     status:'upcoming',statusLabel:'Upcoming',time:'6:59 AM',tl:'6:59 AM',bucket:'today',order:659,topics:['entertainment'],
+     ref:'UPI Autopay · Disney+ Hotstar',mandate:'Auto-debit from HDFC ••4821',
+     detail:'Your Disney+ Hotstar Super plan renews on Jun 28 via UPI Autopay. No action needed unless you want to change the plan.'},
+    // business / finance
+    {merchant:'Airtel Postpaid',initials:'A',tone:'#E40000',amount:'₹999',due:'Due tomorrow · Jun 23',
+     status:'due',statusLabel:'Due',time:'7:00 AM',tl:'7:00 AM',bucket:'today',order:701,topics:['business'],
+     ref:'UPI Autopay · Bharti Airtel Ltd',mandate:'Auto-debit from HDFC ••4821',
+     detail:'Your postpaid bill for the June cycle will be auto-debited tomorrow under your active UPI Autopay mandate. No action needed unless you want to pause it.'},
+    {merchant:'HDFC Credit Card',initials:'HD',tone:'#004C8F',amount:'₹14,250',due:'Due · Jun 27',
+     status:'due',statusLabel:'Due',time:'6:58 AM',tl:'6:58 AM',bucket:'today',order:658,topics:['business'],
+     ref:'UPI · HDFC Bank Credit Card bill',mandate:'Pay from HDFC ••4821',
+     detail:'Your HDFC credit card total due of ₹14,250 is payable by Jun 27. Pay the full amount to avoid interest charges. Minimum due: ₹1,200.'},
+    {merchant:'SIP · Axis Bluechip',initials:'AX',tone:'#97144D',amount:'₹5,000',due:'Upcoming · Jul 1',
+     status:'upcoming',statusLabel:'Upcoming',time:'6:16 AM',tl:'6:16 AM',bucket:'today',order:616,topics:['business'],
+     ref:'UPI Autopay · Axis Mutual Fund',mandate:'Auto-debit from HDFC ••4821',
+     detail:'Your monthly SIP of ₹5,000 into Axis Bluechip Fund is scheduled for Jul 1 under your UPI Autopay mandate. Investments are subject to market risks.'},
+    {merchant:'LIC Premium',initials:'LI',tone:'#004A8F',amount:'₹3,200',due:'Upcoming · Jul 1',
+     status:'upcoming',statusLabel:'Upcoming',time:'Yesterday',tl:'Yest · 10:00 AM',bucket:'yesterday',order:1000,topics:['business'],
+     ref:'UPI Autopay · LIC of India',mandate:'Auto-debit from HDFC ••4821',
+     detail:'Your LIC policy premium of ₹3,200 is due on Jul 1 and will be auto-debited under your UPI Autopay mandate.'},
+    {merchant:'Tata Power',initials:'TP',tone:'#0A4D8C',amount:'₹1,240',due:'Paid · Jun 18',
+     status:'paid',statusLabel:'Paid',time:'Wed, 18 Jun',tl:'Wed, 18 Jun',bucket:'earlier',order:0,topics:['business'],
+     ref:'UPI · Tata Power electricity bill',mandate:'Paid from HDFC ••4821',
+     detail:'Your electricity bill for May was paid successfully on Jun 18. Transaction ID UPI-2026061855210. Receipt available in Google Pay.'},
+    // shopping
+    {merchant:'Amazon Prime',initials:'AP',tone:'#FF9900',amount:'₹1,499',due:'Upcoming · Jun 30',
+     status:'upcoming',statusLabel:'Upcoming',time:'Yesterday',tl:'Yest · 12:30 PM',bucket:'yesterday',order:1230,topics:['shopping'],
+     ref:'UPI Autopay · Amazon Prime',mandate:'Auto-debit from HDFC ••4821',
+     detail:'Your Amazon Prime annual membership renews on Jun 30 for ₹1,499 via UPI Autopay. Manage the mandate anytime in Google Pay.'},
+    // health
+    {merchant:'cult.fit Membership',initials:'CF',tone:'#0D0D0D',amount:'₹1,300',due:'Upcoming · Jun 26',
+     status:'upcoming',statusLabel:'Upcoming',time:'Yesterday',tl:'Yest · 7:00 PM',bucket:'yesterday',order:1900,topics:['health'],
+     ref:'UPI Autopay · Curefit',mandate:'Auto-debit from HDFC ••4821',
+     detail:'Your cult.fit monthly membership of ₹1,300 renews on Jun 26 under your UPI Autopay mandate. Pause or cancel anytime in Google Pay.'},
+    {merchant:'Star Health Insurance',initials:'SH',tone:'#0072BC',amount:'₹1,850',due:'Upcoming · Jul 2',
+     status:'upcoming',statusLabel:'Upcoming',time:'Thu, 19 Jun',tl:'Thu, 19 Jun',bucket:'earlier',order:10,topics:['health'],
+     ref:'UPI Autopay · Star Health',mandate:'Auto-debit from HDFC ••4821',
+     detail:'Your Star Health insurance premium of ₹1,850 is due on Jul 2 and will be auto-debited under your UPI Autopay mandate. Keep your policy active to stay covered.'}
+  ]
+};
+
+/* ---------- personalization ----------
+   Every source loads ONLY items whose topics match the user's interests.
+   Change interests in Settings → a different set loads across all apps.
+   (With no interests selected we fall back to showing everything.) */
+function isForYou(item){ return userInterests.length && item.topics && item.topics.some(t=>userInterests.includes(t)); }
+function getItems(key){
+  let arr=DATA[key].slice();
+  if(userInterests.length) arr=arr.filter(it=>it.topics && it.topics.some(t=>userInterests.includes(t)));
+  const rank={today:2,yesterday:1,earlier:0};
+  arr.sort((a,b)=>(rank[b.bucket]-rank[a.bucket])||(b.order-a.order));
+  return arr;
+}
+function countFor(key){
+  if(key==='gpay') return getItems('gpay').filter(x=>x.status!=='paid').length;
+  return getItems(key).length;
+}
+function previewFor(key){
+  const items=getItems(key);
+  if(key==='gmail'){ if(!items.length) return 'No unread mail right now'; const i=items[0]; return `${i.from} · ${i.subject}`; }
+  if(key==='news'){ if(!items.length) return 'No headlines match your interests yet'; const i=items[0]; return `${i.source} · ${i.headline}`; }
+  if(!items.length) return 'No upcoming dues'; const i=items[0];
+  return `${i.merchant} · ${i.amount} ${i.due.replace('Due ','due ').replace('Upcoming · ','due ')}`;
+}
+const connectedKeys=()=>Object.keys(SOURCES).filter(k=>state[k]===true);
+
+function refreshIcons(){ if(window.lucide) lucide.createIcons(); }
+
+/* =====================================================================
+   NAVIGATION
+   ===================================================================== */
+function show(id, fromId){
+  const next=document.getElementById(id);
+  if(fromId){
+    const cur=document.getElementById(fromId);
+    cur.classList.remove('active'); cur.classList.add('exit-left');
+    setTimeout(()=>cur.classList.remove('exit-left'),460);
+  }
+  next.classList.add('active');
+}
+function showNav(on){ document.getElementById('bottom-nav').classList.toggle('show',on); }
+
+function navTo(tab){
+  ['feed','sources','profile'].forEach(t=>{
+    document.getElementById('screen-'+t).classList.toggle('active', t===tab);
+    document.getElementById('nav-'+t).classList.toggle('on', t===tab);
+  });
+  if(tab==='feed') renderFeed();
+  if(tab==='sources') renderSources(true);
+  if(tab==='profile') renderProfile();
+  showNav(true);
+  refreshIcons();
+}
+
+/* ---------- LOGIN ---------- */
+function doLogin(){
+  const ll=document.getElementById('login-loading'), lbl=document.getElementById('google-label'), btn=document.getElementById('btn-google');
+  btn.style.pointerEvents='none'; lbl.innerHTML='';
+  const sp=document.createElement('div'); sp.className='spinner'; btn.prepend(sp);
+  setTimeout(()=>ll.classList.add('show'),120);
+  setTimeout(()=>{
+    renderInterests('onboarding');
+    show('screen-interests','screen-login');
+    setTimeout(()=>{ ll.classList.remove('show'); btn.style.pointerEvents=''; sp.remove(); lbl.textContent='Continue with Google'; },500);
+  },1400);
+}
+
+/* ---------- INTERESTS ---------- */
+function renderInterests(mode){
+  interestsMode=mode; const isEdit=mode==='edit';
+  document.getElementById('interests-back').style.display=isEdit?'':'none';
+  document.getElementById('name-block').style.display=isEdit?'none':'';
+  document.getElementById('interests-title').textContent=isEdit?'Your interests':'First, what are you into?';
+  document.getElementById('interests-sub').textContent=isEdit
+    ? 'Update your interests — your whole timeline re-tunes instantly.'
+    : 'Reyara tailors every update — news, deals and reminders — around your interests. Pick a few to get started.';
+  document.getElementById('name-input').value=(userName==='Sachin'&&!isEdit)?'':userName;
+  const grid=document.getElementById('interest-grid'); grid.innerHTML='';
+  INTERESTS.forEach(it=>{
+    const b=document.createElement('button');
+    b.className='chip'+(userInterests.includes(it.key)?' sel':''); b.id='chip-'+it.key;
+    b.innerHTML=`<i data-lucide="${it.icon}"></i>${it.label}`;
+    b.onclick=()=>toggleInterest(it.key); grid.appendChild(b);
+  });
+  refreshIcons(); updateInterestsCta();
+}
+function toggleInterest(key){
+  const i=userInterests.indexOf(key); if(i>=0) userInterests.splice(i,1); else userInterests.push(key);
+  document.getElementById('chip-'+key).classList.toggle('sel'); updateInterestsCta();
+}
+function updateInterestsCta(){
+  const n=userInterests.length;
+  document.getElementById('interest-count').textContent=`${n} selected`;
+  const btn=document.getElementById('btn-interests-continue'), cta=document.getElementById('interests-cta');
+  btn.disabled=n===0;
+  cta.textContent = n===0 ? 'Pick at least one interest' : (interestsMode==='edit' ? 'Save interests' : `Continue with ${n} interest${n>1?'s':''}`);
+}
+function submitInterests(){
+  if(!userInterests.length) return;
+  if(interestsMode==='onboarding'){
+    const nm=document.getElementById('name-input').value.trim(); if(nm) userName=nm;
+    show('screen-connect','screen-interests');
+  }else{
+    // jump straight to the timeline so the client sees the new set load in
+    document.getElementById('screen-interests').classList.remove('active');
+    navTo('feed'); toast('Interests updated — refreshing your feed');
+  }
+}
+function exitInterestsEdit(){ document.getElementById('screen-interests').classList.remove('active'); navTo('profile'); }
+function editInterests(){ renderInterests('edit'); show('screen-interests'); }
+
+/* ---------- CONNECT ---------- */
+function renderConnect(){
+  const wrap=document.getElementById('connect-list'); wrap.innerHTML='';
+  Object.values(SOURCES).forEach(s=>{
+    const card=document.createElement('div'); card.className='connect-card'; card.id='cc-'+s.key;
+    card.innerHTML=`<span class="app-icon" data-app="${s.key}"><i data-lucide="${s.icon}"></i></span>
+      <div class="meta"><div class="name">${s.name}</div><div class="desc">${s.accessLine}</div></div>
+      <div id="cc-action-${s.key}"></div>`;
+    wrap.appendChild(card);
+    const skipRow=document.createElement('div'); skipRow.className='row-skip'; skipRow.id='cc-skip-'+s.key;
+    skipRow.innerHTML=`<button class="pill-btn skip" onclick="skipSource('${s.key}')">Skip for now</button>`;
+    wrap.appendChild(skipRow);
+    renderConnectAction(s.key);
+  });
+  refreshIcons();
+}
+function renderConnectAction(key){
+  const a=document.getElementById('cc-action-'+key); if(!a) return;
+  const skipRow=document.getElementById('cc-skip-'+key); const s=SOURCES[key];
+  if(state[key]===true){ a.innerHTML=`<button class="pill-btn connected"><i data-lucide="check"></i>Connected</button>`; skipRow.style.display='none'; }
+  else if(state[key]===false){ a.innerHTML=`<button class="pill-btn skipped" onclick="askPermission('${key}','connect')">Connect</button>`; skipRow.innerHTML=`<span style="font-size:11.5px;color:var(--ink-3);align-self:center;">Skipped · won’t show data</span>`; }
+  else{ a.innerHTML=`<button class="pill-btn" onclick="askPermission('${key}','connect')">Connect ${s.short}</button>`; skipRow.style.display=''; }
+  refreshIcons(); updateContinue();
+}
+function skipSource(key){ state[key]=false; renderConnectAction(key); }
+function updateContinue(){
+  const any=Object.values(state).some(v=>v===true);
+  const n=Object.values(state).filter(v=>v===true).length;
+  const btn=document.getElementById('btn-continue'), lbl=document.getElementById('continue-label');
+  btn.disabled=!any; lbl.textContent=any?`Continue with ${n} app${n>1?'s':''}`:'Connect an app to continue';
+}
+
+/* ---------- PERMISSION SHEET ---------- */
+let permPending=null;
+function askPermission(key,origin){
+  permPending={key,origin}; const s=SOURCES[key];
+  document.getElementById('perm-title').textContent=`Reyara wants to ${s.scopeTitle.toLowerCase()}`;
+  const pi=document.getElementById('perm-icon'); pi.className='pa-icon'; pi.innerHTML=`<i data-lucide="${s.icon}"></i>`;
+  pi.style.background = key==='gmail'?'linear-gradient(135deg,#EA4335,#D93025)':key==='news'?'linear-gradient(135deg,#4285F4,#1A73E8)':'linear-gradient(135deg,#00BFA5,#00897B)';
+  document.getElementById('perm-scope-t').textContent=s.permScopeT;
+  document.getElementById('perm-scope-d').textContent=s.permScopeD;
+  document.getElementById('perm-scope-ic').innerHTML=`<i data-lucide="${s.permScopeIc}"></i>`;
+  refreshIcons();
+  document.getElementById('perm-scrim').classList.add('show');
+}
+function resolvePerm(allow){
+  document.getElementById('perm-scrim').classList.remove('show');
+  const p=permPending; permPending=null; if(!p) return;
+  setTimeout(()=>{
+    if(allow){ state[p.key]=true; toast(`${SOURCES[p.key].name} connected`); }
+    else if(state[p.key]!==true) state[p.key]=false;
+    renderConnectAction(p.key);
+    if(document.getElementById('screen-feed').classList.contains('active')) renderFeed();
+    if(document.getElementById('screen-sources').classList.contains('active')) renderSources(true);
+    if(document.getElementById('screen-profile').classList.contains('active')||p.origin==='profile') renderProfile();
+  },180);
+}
+
+/* ---------- ENTER APP ---------- */
+function goApp(){
+  show('screen-feed','screen-connect');
+  if(currentFilter!=='all' && state[currentFilter]!==true) currentFilter='all';
+  navTo('feed');
+  startPushes();
+}
+
+/* =====================================================================
+   MOCK PUSH NOTIFICATIONS
+   Fires the first push ~60s after entering the app, then every ~90s,
+   rotating through connected apps. Content is pulled from the same mock
+   data (and respects interests), so taps deep-link into that app.
+   ===================================================================== */
+let pushTimers=[], pushSourceRot=0, pushItemIdx=0, pushHideTimer=null, lastPushKey=null;
+function startPushes(){
+  stopPushes();
+  pushTimers.push(setTimeout(()=>{ firePush(); pushTimers.push(setInterval(firePush, 90000)); }, 60000));
+}
+function stopPushes(){ pushTimers.forEach(t=>{clearTimeout(t);clearInterval(t);}); pushTimers=[]; clearTimeout(pushHideTimer); hidePush(); }
+function firePush(){
+  if(!settingsToggles.notifications) return;        // respects the Push notifications toggle
+  const keys=connectedKeys(); if(!keys.length) return;
+  const key=keys[pushSourceRot++ % keys.length];
+  const items=getItems(key); if(!items.length) return;
+  const it=items[pushItemIdx++ % items.length];
+  const s=SOURCES[key];
+  const ic=document.getElementById('push-ic'); ic.style.background=s.brand; ic.innerHTML=`<i data-lucide="${s.icon}"></i>`;
+  document.getElementById('push-app').textContent=s.name;
+  let title,text;
+  if(key==='gmail'){ title=it.from; text=it.subject; }
+  else if(key==='news'){ title=it.source; text=it.headline; }
+  else { title=it.merchant; text=`${it.amount} · ${it.due}`; }
+  document.getElementById('push-title').textContent=title;
+  document.getElementById('push-text').textContent=text;
+  lastPushKey=key; refreshIcons();
+  const p=document.getElementById('push'); p.classList.add('show');
+  clearTimeout(pushHideTimer); pushHideTimer=setTimeout(hidePush,6000);
+}
+function hidePush(){ const p=document.getElementById('push'); if(p) p.classList.remove('show'); }
+function openPush(){ hidePush(); if(lastPushKey){ navTo('feed'); const k=lastPushKey; setTimeout(()=>openDetail(k),140); } }
+
+/* =====================================================================
+   TAB: TODAY (timeline)
+   ===================================================================== */
+function fmtDate(){
+  const d=new Date();
+  return d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+}
+function tlTitle(k,it){ return k==='gmail'?it.subject : k==='news'?it.headline : it.merchant; }
+function tlSnippet(k,it){ return k==='gmail'?it.snippet : k==='news'?it.snip : it.due; }
+function tlSrcName(k,it){ return k==='gmail'?`${it.from} · Gmail` : k==='news'?`${it.source} · News` : 'Google Pay'; }
+
+function timelineEntries(){
+  const keys = currentFilter==='all' ? connectedKeys() : (state[currentFilter]===true?[currentFilter]:[]);
+  let entries=[];
+  keys.forEach(k=> getItems(k).forEach(it=> entries.push({k,it})) );
+  const rank={today:2,yesterday:1,earlier:0};
+  entries.sort((a,b)=> (rank[b.it.bucket]-rank[a.it.bucket]) || (b.it.order-a.it.order));
+  return entries;
+}
+function buildTimelineCard(k,it){
+  const s=SOURCES[k];
+  let extras='';
+  if(k==='gpay'){ extras=`<span class="tl-amount">${it.amount}</span><span class="status ${it.status}">${it.statusLabel}</span>`; }
+  else if(it.cat){ extras=`<span class="tag">${it.cat}</span>`; }
+  else if(it.topics && it.topics[0]){ extras=`<span class="tag">${interestLabel(it.topics[0])}</span>`; } // Gmail: show matched interest
+  const bodyParas = (k==='news'? it.body : k==='gmail'? it.body : `${it.ref}\n${it.mandate}\n${it.detail}`)
+    .split('\n').filter(Boolean).map(p=>`<p>${p}</p>`).join('');
+  const appName = k==='gmail'?'Gmail':k==='news'?'Google News':'Google Pay';
+  return `
+    <div class="tl-main">
+      <div class="tl-meta">
+        <span class="tl-src"><span class="si" style="background:${s.brand}"><i data-lucide="${s.icon}"></i></span>${tlSrcName(k,it)}</span>
+      </div>
+      <div class="tl-title">${tlTitle(k,it)}</div>
+      <div class="tl-snippet">${tlSnippet(k,it)}</div>
+      ${extras?`<div class="tl-extras">${extras}</div>`:''}
+    </div>
+    <div class="item-expand"><div class="inner">
+      ${bodyParas}
+      <button class="open-app" onclick="event.stopPropagation();toast('Opens ${appName} app')"><i data-lucide="external-link"></i>Open in ${appName}</button>
+    </div></div>`;
+}
+function renderFeed(){
+  document.getElementById('feed-date').textContent=fmtDate();
+  document.getElementById('feed-greeting').textContent=`Good morning, ${userName}`;
+  document.getElementById('feed-avatar').textContent=(userName.trim()[0]||'S').toUpperCase();
+  document.getElementById('sources-avatar').textContent=(userName.trim()[0]||'S').toUpperCase();
+
+  // tuned row
+  const tuned=document.getElementById('feed-tuned');
+  if(userInterests.length){
+    const shown=userInterests.slice(0,2).map(k=>`<span class="tchip">${interestLabel(k)}</span>`).join('');
+    const more=userInterests.length>2?`<span class="tchip">+${userInterests.length-2}</span>`:'';
+    tuned.innerHTML=`<span class="lbl">Tuned to</span>${shown}${more}<span class="edit-tuned"><i data-lucide="settings-2"></i>Edit</span>`;
+    tuned.style.display='inline-flex';
+  }else tuned.style.display='none';
+
+  renderBrief();
+  renderFilters();
+  renderTimeline();
+  refreshIcons();
+}
+function renderBrief(){
+  const brief=document.getElementById('feed-brief');
+  const keys=connectedKeys();
+  if(!keys.length){
+    brief.innerHTML=`<div class="b-tag"><i data-lucide="sparkles"></i>Today's brief</div>
+      <div class="b-text">No apps connected yet. Connect a source to start your timeline.</div>`;
+    return;
+  }
+  const parts=[];
+  if(state.gmail===true){const n=countFor('gmail'); parts.push(`<b>${n}</b> new email${n!==1?'s':''}`);}
+  if(state.news===true){const n=countFor('news'); parts.push(`<b>${n}</b> headline${n!==1?'s':''}`);}
+  if(state.gpay===true){const n=countFor('gpay'); parts.push(`<b>${n}</b> payment${n!==1?'s':''} due`);}
+  let txt=`Good morning, ${userName}. You have ${parts.join(', ').replace(/, ([^,]*)$/,' and $1')} today.`;
+  // most time-sensitive
+  let urgent='';
+  if(state.gpay===true){
+    const due=getItems('gpay').find(x=>x.status==='due')||getItems('gpay').find(x=>x.status==='upcoming');
+    if(due) urgent=`<div class="b-urgent"><i data-lucide="alarm-clock"></i>${due.merchant} ${due.amount} — ${due.due.replace('Due ','due ').replace('Upcoming · ','renews ')}</div>`;
+  }
+  brief.innerHTML=`<div class="b-tag"><i data-lucide="sparkles"></i>Today's brief</div><div class="b-text">${txt}</div>${urgent}`;
+}
+function renderFilters(){
+  const wrap=document.getElementById('feed-filters'); wrap.innerHTML='';
+  const keys=connectedKeys(); if(!keys.length){ wrap.style.display='none'; return; } wrap.style.display='flex';
+  const mk=(id,label,icon)=>`<button class="fchip ${currentFilter===id?'on':''}" onclick="setFilter('${id}')">${icon?`<i data-lucide="${icon}"></i>`:''}${label}</button>`;
+  let html=mk('all','All','layers');
+  keys.forEach(k=> html+=mk(k,SOURCES[k].short,SOURCES[k].icon));
+  wrap.innerHTML=html; refreshIcons();
+}
+function setFilter(id){ currentFilter=id; renderFilters(); renderTimeline(); }
+function renderTimeline(){
+  const wrap=document.getElementById('timeline'); wrap.innerHTML='';
+  const keys=connectedKeys();
+  if(!keys.length){
+    wrap.innerHTML=`<div class="empty-state">
+      <div class="es-ic"><i data-lucide="inbox"></i></div>
+      <div class="es-t">Your timeline is empty</div>
+      <div class="es-d">Connect Gmail, Google News or Google Pay to see your updates roll in here.</div>
+      <button class="btn btn-primary" style="max-width:220px;margin:16px auto 0;" onclick="navTo('sources')">Connect an app</button>
+    </div>`; refreshIcons(); return;
+  }
+  const entries=timelineEntries();
+  if(!entries.length){
+    wrap.innerHTML=`<div class="empty-state"><div class="es-ic"><i data-lucide="search-x"></i></div>
+      <div class="es-t">Nothing here yet</div><div class="es-d">No updates match this filter or your interests right now.</div></div>`;
+    refreshIcons(); return;
+  }
+  paintTimeline(wrap, entries);
+}
+/* Shared timeline renderer — used by BOTH the Today feed and the per-source
+   detail view, so every app gets the exact same timeline UI. */
+function paintTimeline(wrap, entries){
+  const labels={today:'Today',yesterday:'Yesterday',earlier:'Earlier'};
+  let lastBucket=null;
+  entries.forEach((e,idx)=>{
+    if(e.it.bucket!==lastBucket){
+      lastBucket=e.it.bucket;
+      const g=document.createElement('div'); g.className='tl-group-label'; g.textContent=labels[e.it.bucket]; g.style.paddingLeft='24px';
+      wrap.appendChild(g);
+    }
+    const row=document.createElement('div'); row.className='tl-group';
+    const item=document.createElement('div'); item.className='tl-item';
+    item.innerHTML=`<div class="tl-rail"><span class="tl-dot" style="background:${SOURCES[e.k].brand}"></span><span class="tl-railtime">${e.it.tl}</span></div>
+      <div class="tl-card" style="animation-delay:${idx*45}ms">${buildTimelineCard(e.k,e.it)}</div>`;
+    item.querySelector('.tl-main').onclick=ev=>{ ev.stopPropagation(); item.querySelector('.tl-card').classList.toggle('open'); };
+    row.appendChild(item); wrap.appendChild(row);
+  });
+  refreshIcons();
+}
+
+/* =====================================================================
+   TAB: SOURCES
+   ===================================================================== */
+function renderSources(animate){
+  const wrap=document.getElementById('sources-list'); wrap.innerHTML='';
+  const connectedCount=connectedKeys().length;
+  document.getElementById('sources-line').textContent = connectedCount
+    ? 'Tap an app to see everything in detail.'
+    : 'Connect an app to start seeing your updates.';
+  Object.values(SOURCES).forEach(s=>{
+    const connected=state[s.key]===true; const card=document.createElement('div');
+    if(connected){
+      const n=countFor(s.key);
+      card.className='summary-card'; card.onclick=()=>openDetail(s.key);
+      card.innerHTML=`<span class="app-icon" data-app="${s.key}"><i data-lucide="${s.icon}"></i></span>
+        <div class="body"><div class="name-row"><span class="nm">${s.name}</span>
+        <span class="count-badge" id="badge-${s.key}"><span class="n">${n}</span> ${s.key==='gpay'?'due':'new'}</span></div>
+        <div class="preview">${previewFor(s.key)}</div></div>
+        <span class="chev"><i data-lucide="chevron-right"></i></span>`;
+    }else{
+      card.className='summary-card muted';
+      card.innerHTML=`<span class="app-icon" data-app="${s.key}"><i data-lucide="${s.icon}"></i></span>
+        <div class="body"><div class="name-row"><span class="nm">${s.name}</span></div><div class="preview">${s.skipPrompt}</div></div>
+        <button class="connect-link" onclick="event.stopPropagation();askPermission('${s.key}','sources')"><i data-lucide="plus"></i>Connect</button>`;
+    }
+    wrap.appendChild(card);
+  });
+  refreshIcons();
+  if(animate){
+    let d=160;
+    Object.values(SOURCES).forEach(s=>{ if(state[s.key]===true){ const b=document.getElementById('badge-'+s.key); if(b){ setTimeout(()=>b.classList.add('pop'),d); d+=120; } } });
+  }else{
+    Object.values(SOURCES).forEach(s=>{ const b=document.getElementById('badge-'+s.key); if(b) b.style.transform='scale(1)'; });
+  }
+}
+
+/* =====================================================================
+   DETAIL
+   ===================================================================== */
+function openDetail(key){
+  const s=SOURCES[key];
+  const icon=document.getElementById('detail-icon'); icon.setAttribute('data-app',key);
+  icon.innerHTML=`<i data-lucide="${s.icon}" style="width:20px;height:20px;"></i>`;
+  document.getElementById('detail-name').textContent=s.name;
+  const n=countFor(key);
+  document.getElementById('detail-sub').textContent=`${s.subhead} · ${n} ${key==='gpay'?(n===1?'item due':'items due'):'new'}`;
+  const list=document.getElementById('detail-list'); list.innerHTML='';
+  const items=getItems(key);
+  if(!items.length){
+    list.innerHTML=`<div class="empty-state"><div class="es-ic"><i data-lucide="${s.icon}"></i></div>
+      <div class="es-t">No matching ${key==='news'?'headlines':'items'} yet</div>
+      <div class="es-d">Nothing here matches your interests right now. Broaden your interests and your feed will refill.</div>
+      <button class="btn btn-ghost" style="max-width:220px;margin:16px auto 0;" onclick="closeDetail();setTimeout(()=>{navTo('profile');setTimeout(editInterests,260)},260)">Edit interests</button></div>`;
+  }else{
+    // same timeline UI as the Today feed, but scoped to this one source
+    const rank={today:2,yesterday:1,earlier:0};
+    const entries=items.map(it=>({k:key,it})).sort((a,b)=>(rank[b.it.bucket]-rank[a.it.bucket])||(b.it.order-a.it.order));
+    paintTimeline(list, entries);
+  }
+  refreshIcons();
+  document.getElementById('screen-detail').querySelector('.scroll').scrollTop=0;
+  show('screen-detail');
+}
+function closeDetail(){ document.getElementById('screen-detail').classList.remove('active'); }
+
+/* =====================================================================
+   TAB: YOU (settings)
+   ===================================================================== */
+function renderProfile(){
+  const initials=(userName.trim()[0]||'S').toUpperCase();
+  const tdefs=[
+    {key:'notifications',t:'Push notifications',d:'Get notified when something new arrives',ic:'bell'},
+    {key:'digest',t:'Daily morning digest',d:'A single summary at 8:00 AM',ic:'sunrise'},
+    {key:'sound',t:'Sound & vibration',d:'Play a sound for new updates',ic:'volume-2'},
+  ];
+  const toggles=tdefs.map(x=>`<div class="set-row"><div class="si"><i data-lucide="${x.ic}"></i></div>
+    <div class="st"><div class="t">${x.t}</div><div class="d">${x.d}</div></div>
+    <button class="toggle ${settingsToggles[x.key]?'on':''}" onclick="toggleSetting('${x.key}',this)" aria-label="${x.t}"></button></div>`).join('');
+  const interestChips=userInterests.length?userInterests.map(k=>`<span class="tchip">${interestLabel(k)}</span>`).join(''):`<span class="tchip none">No interests yet</span>`;
+  const apps=Object.values(SOURCES).map(s=>{
+    const c=state[s.key]===true;
+    const action=c?`<button class="set-pill disconnect" onclick="disconnectSource('${s.key}')">Disconnect</button>`:`<button class="set-pill connect" onclick="askPermission('${s.key}','profile')">Connect</button>`;
+    return `<div class="set-row"><span class="app-icon" data-app="${s.key}" style="width:36px;height:36px;border-radius:10px;"><i data-lucide="${s.icon}" style="width:20px;height:20px;"></i></span>
+      <div class="st"><div class="t">${s.name}</div><div class="d">${c?'Connected · '+s.accessLine:'Not connected'}</div></div>${action}</div>`;
+  }).join('');
+  document.getElementById('settings-body').innerHTML=`
+    <div class="profile-card"><div class="pa">${initials}</div><div style="flex:1;min-width:0;"><div class="pn">${userName}</div><div class="pe">sachin@gmail.com</div></div></div>
+    <div class="settings-section"><h3>Preferences</h3><div class="set-card">${toggles}</div></div>
+    <div class="settings-section"><h3>Your interests</h3><div class="set-card">
+      <div class="interest-summary">${interestChips}</div>
+      <div class="set-row" style="cursor:pointer;" onclick="editInterests()"><div class="si"><i data-lucide="sliders-horizontal"></i></div>
+        <div class="st"><div class="t">Change interests</div><div class="d">Re-tune what every app surfaces</div></div><span class="set-link"><i data-lucide="chevron-right"></i></span></div></div></div>
+    <div class="settings-section"><h3>Connected apps</h3><div class="set-card">${apps}</div></div>
+    <button class="signout" onclick="signOut()"><i data-lucide="log-out"></i>Sign out</button>
+    <div class="about-note">Reyara prototype · v0.2<br/>Demonstration only — all data is mock, no real accounts are accessed.</div>`;
+  refreshIcons();
+}
+function toggleSetting(key,el){ settingsToggles[key]=!settingsToggles[key]; el.classList.toggle('on'); toast(settingsToggles[key]?'Turned on':'Turned off'); }
+function disconnectSource(key){ state[key]=false; if(currentFilter===key) currentFilter='all'; renderProfile(); toast(`${SOURCES[key].name} disconnected`); }
+function signOut(){
+  stopPushes();
+  state.gmail=null; state.news=null; state.gpay=null; userInterests=[]; userName='Sachin'; currentFilter='all';
+  settingsToggles.notifications=true; settingsToggles.digest=true; settingsToggles.sound=false;
+  ['feed','sources','profile'].forEach(t=>document.getElementById('screen-'+t).classList.remove('active'));
+  showNav(false); renderConnect(); show('screen-login','screen-profile'); toast('Signed out');
+}
+
+/* ---------- TOAST ---------- */
+let toastTimer=null;
+function toast(msg){
+  const t=document.getElementById('toast'); document.getElementById('toast-text').textContent=msg;
+  t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1900);
+}
+
+/* ---------- INIT ---------- */
+renderConnect();
+refreshIcons();
+</script>
+</body>
+</html>
