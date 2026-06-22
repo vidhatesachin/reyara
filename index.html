@@ -467,7 +467,7 @@
         <p class="big-sub" id="interests-sub">Reyara tailors every update — news, deals and reminders — around your interests. Pick a few to get started.</p>
         <div id="name-block" style="margin-top:24px;">
           <label class="field-label" for="name-input">YOUR NAME</label>
-          <input class="text-input" id="name-input" placeholder="e.g. Sachin" autocomplete="off" />
+          <input class="text-input" id="name-input" placeholder="e.g. Sachin" autocomplete="off" oninput="updateInterestsCta()" />
         </div>
         <div style="margin-top:24px;">
           <label class="field-label">YOUR INTERESTS <span class="muted-count" id="interest-count">0 selected</span></label>
@@ -907,8 +907,8 @@ function renderInterests(mode){
   document.getElementById('name-block').style.display=isEdit?'none':'';
   document.getElementById('interests-title').textContent=isEdit?'Your interests':'First, what are you into?';
   document.getElementById('interests-sub').textContent=isEdit
-    ? 'Update your interests — your whole timeline re-tunes instantly.'
-    : 'Reyara tailors every update — news, deals and reminders — around your interests. Pick a few to get started.';
+    ? 'Update your interests — your whole timeline re-tunes instantly. Pick at least 5.'
+    : 'Reyara tailors every update — news, deals and reminders — around your interests. Add your name and pick at least 5 to get started.';
   document.getElementById('name-input').value=(userName==='Sachin'&&!isEdit)?'':userName;
   const grid=document.getElementById('interest-grid'); grid.innerHTML='';
   INTERESTS.forEach(it=>{
@@ -923,17 +923,23 @@ function toggleInterest(key){
   const i=userInterests.indexOf(key); if(i>=0) userInterests.splice(i,1); else userInterests.push(key);
   document.getElementById('chip-'+key).classList.toggle('sel'); updateInterestsCta();
 }
+const MIN_INTERESTS=5;
 function updateInterestsCta(){
   const n=userInterests.length;
-  document.getElementById('interest-count').textContent=`${n} selected`;
+  document.getElementById('interest-count').textContent=`${n}/${MIN_INTERESTS} selected`;
   const btn=document.getElementById('btn-interests-continue'), cta=document.getElementById('interests-cta');
-  btn.disabled=n===0;
-  cta.textContent = n===0 ? 'Pick at least one interest' : (interestsMode==='edit' ? 'Save interests' : `Continue with ${n} interest${n>1?'s':''}`);
+  const nameOk = interestsMode!=='onboarding' || document.getElementById('name-input').value.trim().length>0;
+  const enough = n>=MIN_INTERESTS;
+  btn.disabled = !(nameOk && enough);
+  if(interestsMode==='onboarding' && !nameOk){ cta.textContent='Enter your name to continue'; }
+  else if(!enough){ cta.textContent=`Pick at least ${MIN_INTERESTS} interests · ${n}/${MIN_INTERESTS}`; }
+  else { cta.textContent = interestsMode==='edit' ? 'Save interests' : `Continue with ${n} interests`; }
 }
 function submitInterests(){
-  if(!userInterests.length) return;
+  const nameOk = interestsMode!=='onboarding' || document.getElementById('name-input').value.trim().length>0;
+  if(userInterests.length<MIN_INTERESTS || !nameOk) return;
   if(interestsMode==='onboarding'){
-    const nm=document.getElementById('name-input').value.trim(); if(nm) userName=nm;
+    userName=document.getElementById('name-input').value.trim();
     show('screen-connect','screen-interests');
   }else{
     // jump straight to the timeline so the client sees the new set load in
@@ -1019,7 +1025,8 @@ function goApp(){
 let pushTimers=[], pushSourceRot=0, pushItemIdx=0, pushHideTimer=null, lastPushKey=null;
 function startPushes(){
   stopPushes();
-  pushTimers.push(setTimeout(()=>{ firePush(); pushTimers.push(setInterval(firePush, 90000)); }, 60000));
+  // first push 15s after the feed is shown, then one every ~90s
+  pushTimers.push(setTimeout(()=>{ firePush(); pushTimers.push(setInterval(firePush, 90000)); }, 15000));
 }
 function stopPushes(){ pushTimers.forEach(t=>{clearTimeout(t);clearInterval(t);}); pushTimers=[]; clearTimeout(pushHideTimer); hidePush(); }
 function firePush(){
